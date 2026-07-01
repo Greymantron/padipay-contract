@@ -1,0 +1,30 @@
+# Smart Contract Architecture & State Flow
+
+This document outlines the core architecture and state machine for the PadiPay Soroban escrow contracts.
+
+## Escrow State Machine
+
+The escrow contract transitions through the following states to ensure funds are securely managed between the Buyer and Seller.
+
+1. **Locked**: 
+   - Initial state when the Buyer deposits funds.
+   - Funds are held in the contract.
+   
+2. **Delivered**:
+   - The Seller has fulfilled the service or delivered the goods.
+   - Waiting for the Buyer to confirm receipt.
+   
+3. **Released**:
+   - The Buyer confirms receipt.
+   - Funds are transferred to the Seller.
+   - Terminal state.
+
+4. **Disputed**:
+   - Either the Buyer or Seller raises an issue before funds are released.
+   - A Mediator (PadiPay admin or decentralized arbiter) steps in.
+   - Terminal state resolution depends on the Mediator's decision.
+   
+## Contract Methods (Overview)
+- `lock_funds`: Transitions state to `Locked`.
+- `release_funds`: Transitions state from `Delivered` to `Released`.
+- `resolve_dispute`: Transitions state from `Disputed` to a resolved outcome.
