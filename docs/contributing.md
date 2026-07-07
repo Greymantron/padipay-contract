@@ -46,7 +46,7 @@ The expected workflow is:
 Choose an Open Issue
         │
         ▼
-Comment (optional, but encouraged)
+    Comment 
         │
         ▼
 Fork the Repository
@@ -64,10 +64,10 @@ Run Formatting & Tests
 Open a Pull Request
         │
         ▼
-Code Review
+    Code Review
         │
         ▼
-Merge
+      Merge
 ```
 
 ## One Issue = One Pull Request
@@ -340,14 +340,14 @@ A contribution is considered complete when:
 If anything is unclear:
 
 * Ask a question on the relevant GitHub Issue.
-* Open a GitHub Discussion (if enabled).
+* Open a GitHub Discussion
 * Reach out through the project's communication channels.
 
 We welcome questions just as much as code contributions.
 
 ---
 
-## Thank You ❤️
+## Thank You 
 
 Every contribution, whether it's code, tests, documentation, or feedback, helps make PadiPay a more reliable and accessible escrow protocol.
 
