@@ -18,6 +18,13 @@ impl PadiPayEscrowContract {
     ) -> Result<(), EscrowError> {
         buyer.require_auth();
 
+        if amount <= 0 {
+            return Err(EscrowError::InvalidAmount);
+        }
+        if buyer == seller {
+            return Err(EscrowError::InvalidAddresses);
+        }
+
         let state = EscrowState {
             buyer,
             seller,

@@ -48,6 +48,38 @@ fn test_create_escrow_unauthorized() {
 }
 
 #[test]
+#[should_panic(expected = "HostError: Error(Contract, #2)")]
+fn test_create_escrow_invalid_amount() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+    let amount = 0; // Invalid amount
+
+    client.create_escrow(&buyer, &seller, &token, &amount);
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #3)")]
+fn test_create_escrow_invalid_addresses() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let token = Address::generate(&env);
+    let amount = 1000;
+
+    // Buyer == seller
+    client.create_escrow(&buyer, &buyer, &token, &amount);
+}
+
+#[test]
 fn test_lock_funds() {
     let env = Env::default();
     let contract_id = env.register(PadiPayEscrowContract, ());
