@@ -5,4 +5,6 @@ use soroban_sdk::contracterror;
 #[repr(u32)]
 pub enum EscrowError {
     NotFound = 1,
+    InvalidAmount = 2,
+    InvalidAddresses = 3,
 }
