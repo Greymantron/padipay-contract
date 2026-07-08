@@ -1,8 +1,7 @@
 #![cfg(test)]
 
-use super::*;
-use soroban_sdk::{Env, Address, Symbol, testutils::Address as _};
-use crate::{PadiPayEscrowContract, PadiPayEscrowContractClient};
+use soroban_escrow_contracts::{PadiPayEscrowContract, PadiPayEscrowContractClient};
+use soroban_sdk::{testutils::Address as _, Address, Env, Symbol};
 
 #[test]
 fn test_lock_funds() {
