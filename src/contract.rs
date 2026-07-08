@@ -16,6 +16,8 @@ impl PadiPayEscrowContract {
         token: Address,
         amount: i128,
     ) -> Result<(), EscrowError> {
+        buyer.require_auth();
+
         let state = EscrowState {
             buyer,
             seller,

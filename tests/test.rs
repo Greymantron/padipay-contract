@@ -6,6 +6,7 @@ use soroban_sdk::{testutils::Address as _, Address, Env, Symbol};
 #[test]
 fn test_create_escrow() {
     let env = Env::default();
+    env.mock_all_auths();
     let contract_id = env.register(PadiPayEscrowContract, ());
     let client = PadiPayEscrowContractClient::new(&env, &contract_id);
 
@@ -27,6 +28,23 @@ fn test_create_escrow() {
             soroban_escrow_contracts::types::EscrowStatus::Created
         );
     });
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
+fn test_create_escrow_unauthorized() {
+    let env = Env::default();
+    // Do NOT mock auths here.
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+    let amount = 1000;
+
+    // This should panic because buyer didn't authorize
+    client.create_escrow(&buyer, &seller, &token, &amount);
 }
 
 #[test]
