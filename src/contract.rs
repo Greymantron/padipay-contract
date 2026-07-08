@@ -59,11 +59,28 @@ impl PadiPayEscrowContract {
     }
 
     /// Releases funds to the seller.
-    pub fn release_funds(env: Env, buyer: Address) {
-        // TODO: Verify the buyer has authorized the release (buyer.require_auth()).
-        // TODO: Retrieve the escrow state from storage and ensure it is currently 'Locked' or 'Delivered'.
-        // TODO: Transfer the locked funds from the contract to the seller.
-        // TODO: Update the escrow state to 'Released' and emit an event.
+    pub fn release_funds(env: Env) -> Result<(), EscrowError> {
+        let mut state = read_escrow_state(&env)?;
+
+        state.buyer.require_auth();
+
+        if state.status != EscrowStatus::Locked {
+            return Err(EscrowError::InvalidState);
+        }
+
+        let token_client = crate::token::get_token_client(&env, &state.token);
+
+        // Transfer from contract to seller
+        token_client.transfer(
+            &env.current_contract_address(),
+            &state.seller,
+            &state.amount,
+        );
+
+        state.status = EscrowStatus::Released;
+        write_escrow_state(&env, &state);
+
+        Ok(())
     }
 
     /// Resolves a dispute between buyer and seller.

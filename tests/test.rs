@@ -122,10 +122,70 @@ fn test_lock_funds() {
 #[test]
 fn test_release_funds() {
     let env = Env::default();
-    // TODO: Set up environment, register contract, and mock tokens.
-    // TODO: Lock funds first.
-    // TODO: Call client.release_funds(&buyer).
-    // TODO: Assert that the seller received the funds.
+    env.mock_all_auths();
+
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let amount = 1000;
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
+    let token_client_basic = soroban_sdk::token::Client::new(&env, &token_contract.address());
+
+    // Mint tokens to buyer
+    token_client.mint(&buyer, &10000);
+
+    // Create escrow
+    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
+
+    // Lock funds
+    client.lock_funds();
+
+    // Release funds
+    client.release_funds();
+
+    // Check balances
+    assert_eq!(token_client_basic.balance(&contract_id), 0);
+    assert_eq!(token_client_basic.balance(&seller), 1000);
+
+    env.as_contract(&contract_id, || {
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        assert_eq!(
+            state.status,
+            soroban_escrow_contracts::types::EscrowStatus::Released
+        );
+    });
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #4)")]
+fn test_release_funds_already_released() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let amount = 1000;
+
+    let token_admin = Address::generate(&env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
+
+    token_client.mint(&buyer, &10000);
+
+    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
+    client.lock_funds();
+    client.release_funds();
+
+    // Releasing again should panic with InvalidState (Error 4)
+    client.release_funds();
 }
 
 #[test]
