@@ -1,4 +1,7 @@
 use crate::error::Error;
+use crate::events::{
+    publish_escrow_created, publish_escrow_refunded, publish_funds_locked, publish_funds_released,
+};
 use crate::storage::write_escrow_state;
 use crate::types::{EscrowState, EscrowStatus};
 use crate::validation::{
@@ -36,6 +39,7 @@ impl PadiPayEscrowContract {
             status: EscrowStatus::Created,
         };
         write_escrow_state(&env, &state);
+        publish_escrow_created(&env, &state);
         Ok(())
     }
     /// Locks funds in the escrow.
@@ -53,6 +57,8 @@ impl PadiPayEscrowContract {
 
         state.status = EscrowStatus::Locked;
         write_escrow_state(&env, &state);
+
+        publish_funds_locked(&env, &state);
 
         Ok(())
     }
@@ -76,6 +82,8 @@ impl PadiPayEscrowContract {
         state.status = EscrowStatus::Released;
         write_escrow_state(&env, &state);
 
+        publish_funds_released(&env, &state);
+
         Ok(())
     }
 
@@ -93,6 +101,8 @@ impl PadiPayEscrowContract {
 
         state.status = EscrowStatus::Refunded;
         write_escrow_state(&env, &state);
+
+        publish_escrow_refunded(&env, &state);
 
         Ok(())
     }

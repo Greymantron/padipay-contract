@@ -1,7 +1,10 @@
 #![cfg(test)]
 
 use soroban_escrow_contracts::{PadiPayEscrowContract, PadiPayEscrowContractClient};
-use soroban_sdk::{testutils::Address as _, Address, Env, Symbol};
+use soroban_sdk::{
+    testutils::{Address as _, Events},
+    vec, Address, Env, IntoVal, Symbol,
+};
 
 #[test]
 fn test_create_escrow() {
@@ -16,6 +19,24 @@ fn test_create_escrow() {
     let amount = 1000;
 
     client.create_escrow(&buyer, &seller, &token, &amount);
+
+    let events = env.events().all();
+    assert_eq!(
+        events,
+        vec![
+            &env,
+            (
+                contract_id.clone(),
+                (
+                    Symbol::new(&env, "EscrowCreated"),
+                    buyer.clone(),
+                    seller.clone()
+                )
+                    .into_val(&env),
+                amount.into_val(&env)
+            )
+        ]
+    );
 
     env.as_contract(&contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
@@ -106,6 +127,24 @@ fn test_lock_funds() {
     // Lock funds
     client.lock_funds();
 
+    let events = env.events().all().filter_by_contract(&contract_id);
+    assert_eq!(
+        events,
+        vec![
+            &env,
+            (
+                contract_id.clone(),
+                (
+                    Symbol::new(&env, "FundsLocked"),
+                    buyer.clone(),
+                    seller.clone()
+                )
+                    .into_val(&env),
+                amount.into_val(&env)
+            )
+        ]
+    );
+
     // Check balances
     assert_eq!(token_client_basic.balance(&buyer), 9000);
     assert_eq!(token_client_basic.balance(&contract_id), 1000);
@@ -173,6 +212,24 @@ fn test_release_funds() {
 
     // Release funds
     client.release_funds();
+
+    let events = env.events().all().filter_by_contract(&contract_id);
+    assert_eq!(
+        events,
+        vec![
+            &env,
+            (
+                contract_id.clone(),
+                (
+                    Symbol::new(&env, "FundsReleased"),
+                    buyer.clone(),
+                    seller.clone()
+                )
+                    .into_val(&env),
+                amount.into_val(&env)
+            )
+        ]
+    );
 
     // Check balances
     assert_eq!(token_client_basic.balance(&contract_id), 0);
@@ -243,6 +300,24 @@ fn test_refund() {
 
     // Refund
     client.refund();
+
+    let events = env.events().all().filter_by_contract(&contract_id);
+    assert_eq!(
+        events,
+        vec![
+            &env,
+            (
+                contract_id.clone(),
+                (
+                    Symbol::new(&env, "EscrowRefunded"),
+                    buyer.clone(),
+                    seller.clone()
+                )
+                    .into_val(&env),
+                amount.into_val(&env)
+            )
+        ]
+    );
 
     // Check balances after refund
     assert_eq!(token_client_basic.balance(&contract_id), 0);
