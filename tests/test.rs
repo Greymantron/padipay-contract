@@ -561,3 +561,116 @@ fn test_escrow_lifecycle_happy_path_refund() {
         );
     });
 }
+
+#[test]
+#[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
+fn test_lock_funds_unauthorized() {
+    let env = Env::default();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+
+    env.as_contract(&contract_id, || {
+        let state = soroban_escrow_contracts::types::EscrowState {
+            buyer,
+            seller,
+            token,
+            amount: 1000,
+            status: soroban_escrow_contracts::types::EscrowStatus::Created,
+        };
+        soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
+    });
+
+    client.lock_funds();
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
+fn test_release_funds_unauthorized() {
+    let env = Env::default();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+
+    env.as_contract(&contract_id, || {
+        let state = soroban_escrow_contracts::types::EscrowState {
+            buyer,
+            seller,
+            token,
+            amount: 1000,
+            status: soroban_escrow_contracts::types::EscrowStatus::Locked,
+        };
+        soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
+    });
+
+    client.release_funds();
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
+fn test_refund_unauthorized() {
+    let env = Env::default();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+
+    env.as_contract(&contract_id, || {
+        let state = soroban_escrow_contracts::types::EscrowState {
+            buyer,
+            seller,
+            token,
+            amount: 1000,
+            status: soroban_escrow_contracts::types::EscrowStatus::Locked,
+        };
+        soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
+    });
+
+    client.refund();
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #2)")]
+fn test_release_funds_invalid_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+    let amount = 1000;
+
+    client.create_escrow(&buyer, &seller, &token, &amount);
+
+    // Try to release while still 'Created' (invalid state)
+    client.release_funds();
+}
+
+#[test]
+#[should_panic(expected = "HostError: Error(Contract, #2)")]
+fn test_refund_invalid_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+
+    let buyer = Address::generate(&env);
+    let seller = Address::generate(&env);
+    let token = Address::generate(&env);
+    let amount = 1000;
+
+    client.create_escrow(&buyer, &seller, &token, &amount);
+
+    // Try to refund while still 'Created' (invalid state)
+    client.refund();
+}
