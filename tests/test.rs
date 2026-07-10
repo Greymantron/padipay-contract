@@ -6,19 +6,52 @@ use soroban_sdk::{
     vec, Address, Env, IntoVal, Symbol,
 };
 
+pub struct TestSetup<'a> {
+    pub contract_id: Address,
+    pub client: PadiPayEscrowContractClient<'a>,
+    pub buyer: Address,
+    pub seller: Address,
+    pub token: Address,
+    pub token_admin: Address,
+    pub token_client: soroban_sdk::token::StellarAssetClient<'a>,
+    pub token_client_basic: soroban_sdk::token::Client<'a>,
+}
+
+pub fn setup_test<'a>(env: &'a Env) -> TestSetup<'a> {
+    let contract_id = env.register(PadiPayEscrowContract, ());
+    let client = PadiPayEscrowContractClient::new(env, &contract_id);
+
+    let buyer = Address::generate(env);
+    let seller = Address::generate(env);
+
+    let token_admin = Address::generate(env);
+    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
+    let token = token_contract.address();
+    let token_client = soroban_sdk::token::StellarAssetClient::new(env, &token);
+    let token_client_basic = soroban_sdk::token::Client::new(env, &token);
+
+    TestSetup {
+        contract_id,
+        client,
+        buyer,
+        seller,
+        token,
+        token_admin,
+        token_client,
+        token_client_basic,
+    }
+}
+
 #[test]
 fn test_create_escrow() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    client.create_escrow(&buyer, &seller, &token, &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     let events = env.events().all();
     assert_eq!(
@@ -26,11 +59,11 @@ fn test_create_escrow() {
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowCreated"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -38,11 +71,11 @@ fn test_create_escrow() {
         ]
     );
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
-        assert_eq!(state.buyer, buyer);
-        assert_eq!(state.seller, seller);
-        assert_eq!(state.token, token);
+        assert_eq!(state.buyer, setup.buyer);
+        assert_eq!(state.seller, setup.seller);
+        assert_eq!(state.token, setup.token);
         assert_eq!(state.amount, amount);
         assert_eq!(
             state.status,
@@ -55,17 +88,13 @@ fn test_create_escrow() {
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_create_escrow_unauthorized() {
     let env = Env::default();
-    // Do NOT mock auths here.
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
     // This should panic because buyer didn't authorize
-    client.create_escrow(&buyer, &seller, &token, &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 }
 
 #[test]
@@ -73,15 +102,12 @@ fn test_create_escrow_unauthorized() {
 fn test_create_escrow_invalid_amount() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 0; // Invalid amount
 
-    client.create_escrow(&buyer, &seller, &token, &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 }
 
 #[test]
@@ -89,55 +115,45 @@ fn test_create_escrow_invalid_amount() {
 fn test_create_escrow_invalid_addresses() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let token = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
     // Buyer == seller
-    client.create_escrow(&buyer, &buyer, &token, &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.buyer, &setup.token, &amount);
 }
 
 #[test]
 fn test_lock_funds() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
-    let token_client_basic = soroban_sdk::token::Client::new(&env, &token_contract.address());
-
     // Mint tokens to buyer
-    token_client.mint(&buyer, &10000);
-    assert_eq!(token_client_basic.balance(&buyer), 10000);
+    setup.token_client.mint(&setup.buyer, &10000);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     // Create escrow
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Lock funds
-    client.lock_funds();
+    setup.client.lock_funds();
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsLocked"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -146,10 +162,10 @@ fn test_lock_funds() {
     );
 
     // Check balances
-    assert_eq!(token_client_basic.balance(&buyer), 9000);
-    assert_eq!(token_client_basic.balance(&contract_id), 1000);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 9000);
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 1000);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -163,67 +179,52 @@ fn test_lock_funds() {
 fn test_lock_funds_already_funded() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
+    setup.token_client.mint(&setup.buyer, &10000);
 
-    token_client.mint(&buyer, &10000);
-
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
-    client.lock_funds();
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds();
 
     // This should panic with AlreadyFunded
-    client.lock_funds();
+    setup.client.lock_funds();
 }
 
 #[test]
 fn test_release_funds() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
-    let token_client_basic = soroban_sdk::token::Client::new(&env, &token_contract.address());
-
     // Mint tokens to buyer
-    token_client.mint(&buyer, &10000);
+    setup.token_client.mint(&setup.buyer, &10000);
 
     // Create escrow
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Lock funds
-    client.lock_funds();
+    setup.client.lock_funds();
 
     // Release funds
-    client.release_funds();
+    setup.client.release_funds();
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsReleased"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -232,10 +233,10 @@ fn test_release_funds() {
     );
 
     // Check balances
-    assert_eq!(token_client_basic.balance(&contract_id), 0);
-    assert_eq!(token_client_basic.balance(&seller), 1000);
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 0);
+    assert_eq!(setup.token_client_basic.balance(&setup.seller), 1000);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -249,69 +250,54 @@ fn test_release_funds() {
 fn test_release_funds_already_released() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
+    setup.token_client.mint(&setup.buyer, &10000);
 
-    token_client.mint(&buyer, &10000);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds();
+    setup.client.release_funds();
 
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
-    client.lock_funds();
-    client.release_funds();
-
-    // Releasing again should panic with InvalidState (Error 4)
-    client.release_funds();
+    // Releasing again should panic with InvalidState (Error 2)
+    setup.client.release_funds();
 }
 
 #[test]
 fn test_refund() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
-    let token_client_basic = soroban_sdk::token::Client::new(&env, &token_contract.address());
-
     // Mint tokens to buyer
-    token_client.mint(&buyer, &10000);
+    setup.token_client.mint(&setup.buyer, &10000);
 
     // Create and lock
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
-    client.lock_funds();
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds();
 
     // Check balance before refund
-    assert_eq!(token_client_basic.balance(&buyer), 9000);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 9000);
 
     // Refund
-    client.refund();
+    setup.client.refund();
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowRefunded"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -320,10 +306,10 @@ fn test_refund() {
     );
 
     // Check balances after refund
-    assert_eq!(token_client_basic.balance(&contract_id), 0);
-    assert_eq!(token_client_basic.balance(&buyer), 10000);
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 0);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -337,31 +323,24 @@ fn test_refund() {
 fn test_refund_already_released() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
+    setup.token_client.mint(&setup.buyer, &10000);
 
-    token_client.mint(&buyer, &10000);
-
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
-    client.lock_funds();
-    client.release_funds();
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds();
+    setup.client.release_funds();
 
     // Try to refund after released
-    client.refund();
+    setup.client.refund();
 }
 
 #[test]
 fn test_resolve_dispute() {
-    let env = Env::default();
+    let _env = Env::default();
     // TODO: Set up environment, register contract, and mock tokens.
     // TODO: Lock funds first.
     // TODO: Call client.resolve_dispute(&mediator, &Symbol::new(&env, "refund_buyer")).
@@ -372,37 +351,29 @@ fn test_resolve_dispute() {
 fn test_escrow_lifecycle_happy_path_release() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 5000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
-    let token_client_basic = soroban_sdk::token::Client::new(&env, &token_contract.address());
-
     // 1. Initial State
-    token_client.mint(&buyer, &10000);
-    assert_eq!(token_client_basic.balance(&buyer), 10000);
+    setup.token_client.mint(&setup.buyer, &10000);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     // 2. Create Escrow
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowCreated"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -410,11 +381,11 @@ fn test_escrow_lifecycle_happy_path_release() {
         ]
     );
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
-        assert_eq!(state.buyer, buyer);
-        assert_eq!(state.seller, seller);
-        assert_eq!(state.token, token_contract.address());
+        assert_eq!(state.buyer, setup.buyer);
+        assert_eq!(state.seller, setup.seller);
+        assert_eq!(state.token, setup.token);
         assert_eq!(state.amount, amount);
         assert_eq!(
             state.status,
@@ -423,19 +394,19 @@ fn test_escrow_lifecycle_happy_path_release() {
     });
 
     // 3. Lock Funds
-    client.lock_funds();
+    setup.client.lock_funds();
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsLocked"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -443,10 +414,10 @@ fn test_escrow_lifecycle_happy_path_release() {
         ]
     );
 
-    assert_eq!(token_client_basic.balance(&buyer), 5000);
-    assert_eq!(token_client_basic.balance(&contract_id), 5000);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 5000);
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 5000);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -455,19 +426,19 @@ fn test_escrow_lifecycle_happy_path_release() {
     });
 
     // 4. Release Funds
-    client.release_funds();
+    setup.client.release_funds();
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsReleased"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -475,10 +446,10 @@ fn test_escrow_lifecycle_happy_path_release() {
         ]
     );
 
-    assert_eq!(token_client_basic.balance(&contract_id), 0);
-    assert_eq!(token_client_basic.balance(&seller), 5000);
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 0);
+    assert_eq!(setup.token_client_basic.balance(&setup.seller), 5000);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -491,26 +462,18 @@ fn test_escrow_lifecycle_happy_path_release() {
 fn test_escrow_lifecycle_happy_path_refund() {
     let env = Env::default();
     env.mock_all_auths();
-
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 5000;
 
-    let token_admin = Address::generate(&env);
-    let token_contract = env.register_stellar_asset_contract_v2(token_admin.clone());
-    let token_client = soroban_sdk::token::StellarAssetClient::new(&env, &token_contract.address());
-    let token_client_basic = soroban_sdk::token::Client::new(&env, &token_contract.address());
-
     // 1. Initial State
-    token_client.mint(&buyer, &10000);
+    setup.token_client.mint(&setup.buyer, &10000);
 
     // 2. Create Escrow
-    client.create_escrow(&buyer, &seller, &token_contract.address(), &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -519,9 +482,9 @@ fn test_escrow_lifecycle_happy_path_refund() {
     });
 
     // 3. Lock Funds
-    client.lock_funds();
+    setup.client.lock_funds();
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -530,19 +493,19 @@ fn test_escrow_lifecycle_happy_path_refund() {
     });
 
     // 4. Refund Funds
-    client.refund();
+    setup.client.refund();
 
-    let events = env.events().all().filter_by_contract(&contract_id);
+    let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
         events,
         vec![
             &env,
             (
-                contract_id.clone(),
+                setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowRefunded"),
-                    buyer.clone(),
-                    seller.clone()
+                    setup.buyer.clone(),
+                    setup.seller.clone()
                 )
                     .into_val(&env),
                 amount.into_val(&env)
@@ -550,10 +513,10 @@ fn test_escrow_lifecycle_happy_path_refund() {
         ]
     );
 
-    assert_eq!(token_client_basic.balance(&contract_id), 0);
-    assert_eq!(token_client_basic.balance(&buyer), 10000);
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 0);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
         assert_eq!(
             state.status,
@@ -566,75 +529,60 @@ fn test_escrow_lifecycle_happy_path_refund() {
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_lock_funds_unauthorized() {
     let env = Env::default();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+    let setup = setup_test(&env);
 
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
-
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::types::EscrowState {
-            buyer,
-            seller,
-            token,
+            buyer: setup.buyer.clone(),
+            seller: setup.seller.clone(),
+            token: setup.token.clone(),
             amount: 1000,
             status: soroban_escrow_contracts::types::EscrowStatus::Created,
         };
         soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
     });
 
-    client.lock_funds();
+    setup.client.lock_funds();
 }
 
 #[test]
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_release_funds_unauthorized() {
     let env = Env::default();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+    let setup = setup_test(&env);
 
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
-
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::types::EscrowState {
-            buyer,
-            seller,
-            token,
+            buyer: setup.buyer.clone(),
+            seller: setup.seller.clone(),
+            token: setup.token.clone(),
             amount: 1000,
             status: soroban_escrow_contracts::types::EscrowStatus::Locked,
         };
         soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
     });
 
-    client.release_funds();
+    setup.client.release_funds();
 }
 
 #[test]
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_refund_unauthorized() {
     let env = Env::default();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
+    let setup = setup_test(&env);
 
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
-
-    env.as_contract(&contract_id, || {
+    env.as_contract(&setup.contract_id, || {
         let state = soroban_escrow_contracts::types::EscrowState {
-            buyer,
-            seller,
-            token,
+            buyer: setup.buyer.clone(),
+            seller: setup.seller.clone(),
+            token: setup.token.clone(),
             amount: 1000,
             status: soroban_escrow_contracts::types::EscrowStatus::Locked,
         };
         soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
     });
 
-    client.refund();
+    setup.client.refund();
 }
 
 #[test]
@@ -642,18 +590,15 @@ fn test_refund_unauthorized() {
 fn test_release_funds_invalid_state() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    client.create_escrow(&buyer, &seller, &token, &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Try to release while still 'Created' (invalid state)
-    client.release_funds();
+    setup.client.release_funds();
 }
 
 #[test]
@@ -661,16 +606,13 @@ fn test_release_funds_invalid_state() {
 fn test_refund_invalid_state() {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = env.register(PadiPayEscrowContract, ());
-    let client = PadiPayEscrowContractClient::new(&env, &contract_id);
-
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let token = Address::generate(&env);
+    let setup = setup_test(&env);
     let amount = 1000;
 
-    client.create_escrow(&buyer, &seller, &token, &amount);
+    setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Try to refund while still 'Created' (invalid state)
-    client.refund();
+    setup.client.refund();
 }
