@@ -1,7 +1,9 @@
 use crate::error::Error;
 use crate::storage::write_escrow_state;
 use crate::types::{EscrowState, EscrowStatus};
-use crate::validation::{require_buyer, require_escrow, require_seller, require_status, require_valid_transition};
+use crate::validation::{
+    require_buyer, require_escrow, require_seller, require_status, require_valid_transition,
+};
 use soroban_sdk::{contract, contractimpl, Address, Env, Symbol};
 
 #[contract]

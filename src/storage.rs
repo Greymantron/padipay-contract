@@ -24,7 +24,6 @@ pub fn update_escrow_state(env: &Env, state: &EscrowState) -> Result<(), Error> 
     Ok(())
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
