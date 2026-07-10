@@ -8,11 +8,11 @@ PadiPay is a decentralized, Web2.5 escrow service designed specifically for info
 
 This repository contains the core Soroban smart contracts that power the PadiPay escrow logic on the Stellar network.
 
-## Current MVP Scope (v0.1.0)
+## Completed MVP Scope (v0.1.0)
 
-The current milestone (v0.1.0) focuses on delivering a deployable **Happy Path MVP** on the Stellar Testnet.
+The v0.1.0 milestone delivered a deployable **Happy Path MVP** on the Stellar Testnet. For full release details, see the [Changelog](CHANGELOG.md).
 
-It currently supports:
+It supports:
 - Basic escrow creation
 - Locking funds
 - Releasing funds to the seller
@@ -94,8 +94,8 @@ To deploy the contract to the Stellar Testnet, please see the [Deployment Guide]
 ## Roadmap Summary
 
 PadiPay evolves incrementally. Here is a high-level view of our milestones:
-- **v0.1.0 — Happy Path MVP:** Core escrow flow, tests, and basic CI *[Current]*
-- **v0.2.0 — Contract Hardening:** Security, expirations, storage optimizations
+- **v0.1.0 — Happy Path MVP:** Core escrow flow, tests, and basic CI *[Completed]*
+- **v0.2.0 — Contract Hardening:** Security, expirations, storage optimizations *[Current]*
 - **v0.3.0 — Human Oracle:** Dispute resolution, mediators, oracle registry
 - **v0.4.0 — Production Readiness:** Milestone payments, partial releases, protocol fees
 
@@ -104,6 +104,7 @@ Read the full plan in our [Roadmap](docs/roadmap.md).
 ## Related Repositories and Documentation
 
 - [Contributing Guidelines](docs/contributing.md)
+- [Changelog](CHANGELOG.md)
 - [Architecture & State Flow (MVP)](docs/architecture.md)
 - [Long-Term Architectural Vision](docs/overallArchitecture.md)
 - [Setup Guide](docs/setup-guide.md)

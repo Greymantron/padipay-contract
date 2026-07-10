@@ -18,8 +18,8 @@ Our long-term goal is to power secure, low-cost escrow transactions for everyday
 
 | Milestone                     | Status         |
 | ----------------------------- | -------------- |
-| v0.1.0 — Happy Path MVP       | 🚧 In Progress |
-| v0.2.0 — Contract Hardening   | 📋 Planned     |
+| v0.1.0 — Happy Path MVP       | ✅ Completed    |
+| v0.2.0 — Contract Hardening   | 🚧 In Progress |
 | v0.3.0 — Human Oracle         | 📋 Planned     |
 | v0.4.0 — Production Readiness | 📋 Planned     |
 
@@ -35,50 +35,50 @@ Deliver a deployable escrow contract demonstrating the complete happy path on St
 
 ### Escrow State
 
-* [ ] EscrowStatus enum
-* [ ] EscrowState model
-* [ ] Storage keys
-* [ ] Storage helpers
+* [x] EscrowStatus enum
+* [x] EscrowState model
+* [x] Storage keys
+* [x] Storage helpers
 
 ### Authentication
 
-* [ ] Buyer authorization
-* [ ] Seller authorization
+* [x] Buyer authorization
+* [x] Seller authorization
 
 ### Token Operations
 
-* [ ] Soroban Token Client
-* [ ] Lock funds
-* [ ] Release funds
-* [ ] Refund buyer
+* [x] Soroban Token Client
+* [x] Lock funds
+* [x] Release funds
+* [x] Refund buyer
 
 ### Contract Safety
 
-* [ ] Input validation
-* [ ] State transition validation
-* [ ] Error handling
-* [ ] Validation helpers
+* [x] Input validation
+* [x] State transition validation
+* [x] Error handling
+* [x] Validation helpers
 
 ### Events
 
-* [ ] EscrowCreated
-* [ ] FundsLocked
-* [ ] FundsReleased
-* [ ] EscrowRefunded
+* [x] EscrowCreated
+* [x] FundsLocked
+* [x] FundsReleased
+* [x] EscrowRefunded
 
 ### Testing
 
-* [ ] Happy path tests
-* [ ] Failure-path tests
-* [ ] Authorization tests
-* [ ] Shared test utilities
+* [x] Happy path tests
+* [x] Failure-path tests
+* [x] Authorization tests
+* [x] Shared test utilities
 
 ### Developer Experience
 
 * [x] Improved README
 * [x] GitHub Actions CI
 * [x] Testnet deployment
-* [ ] Release notes
+* [x] Release notes
 
 ---
 
