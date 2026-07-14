@@ -24,6 +24,21 @@ pub fn update_escrow_state(env: &Env, id: EscrowId, state: &EscrowState) -> Resu
     Ok(())
 }
 
+/// Generates a monotonically increasing, unique Escrow ID.
+pub fn increment_nonce(env: &Env) -> EscrowId {
+    let mut nonce: EscrowId = env
+        .storage()
+        .instance()
+        .get(&DataKey::EscrowNonce)
+        .unwrap_or(0);
+
+    nonce += 1;
+
+    env.storage().instance().set(&DataKey::EscrowNonce, &nonce);
+
+    nonce
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -66,6 +81,18 @@ mod test {
             new_state.status = EscrowStatus::Locked;
             assert_eq!(update_escrow_state(&env, id, &new_state), Ok(()));
             assert_eq!(read_escrow_state(&env, id), Ok(new_state));
+        });
+    }
+
+    #[test]
+    fn test_increment_nonce() {
+        let env = Env::default();
+        let contract_id = env.register(crate::PadiPayEscrowContract, ());
+
+        env.as_contract(&contract_id, || {
+            assert_eq!(increment_nonce(&env), 1);
+            assert_eq!(increment_nonce(&env), 2);
+            assert_eq!(increment_nonce(&env), 3);
         });
     }
 }
