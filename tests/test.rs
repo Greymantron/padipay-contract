@@ -62,6 +62,7 @@ fn test_create_escrow() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowCreated"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -152,6 +153,7 @@ fn test_lock_funds() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsLocked"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -223,6 +225,7 @@ fn test_release_funds() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsReleased"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -296,6 +299,7 @@ fn test_refund() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowRefunded"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -372,6 +376,7 @@ fn test_escrow_lifecycle_happy_path_release() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowCreated"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -405,6 +410,7 @@ fn test_escrow_lifecycle_happy_path_release() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsLocked"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -437,6 +443,7 @@ fn test_escrow_lifecycle_happy_path_release() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "FundsReleased"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -504,6 +511,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
                 setup.contract_id.clone(),
                 (
                     Symbol::new(&env, "EscrowRefunded"),
+                    escrow_id,
                     setup.buyer.clone(),
                     setup.seller.clone()
                 )
@@ -618,4 +626,59 @@ fn test_refund_invalid_state() {
 
     // Try to refund while still 'Created' (invalid state)
     setup.client.refund(&escrow_id);
+}
+
+#[test]
+fn test_multiple_concurrent_escrows() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let setup = setup_test(&env);
+
+    // Mint tokens for both
+    setup.token_client.mint(&setup.buyer, &20000);
+
+    // Create Escrow 1
+    let amount1 = 1000;
+    let escrow_id_1 =
+        setup
+            .client
+            .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount1);
+
+    // Create Escrow 2
+    let amount2 = 5000;
+    let escrow_id_2 =
+        setup
+            .client
+            .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount2);
+
+    // Validate unique IDs
+    assert_eq!(escrow_id_1, 1);
+    assert_eq!(escrow_id_2, 2);
+
+    // Update Escrow 1 (Lock funds)
+    setup.client.lock_funds(&escrow_id_1);
+
+    // Read state 1
+    let state1 = env.as_contract(&setup.contract_id, || {
+        soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id_1).unwrap()
+    });
+
+    // Read state 2
+    let state2 = env.as_contract(&setup.contract_id, || {
+        soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id_2).unwrap()
+    });
+
+    // Validate Escrow 1 is locked, but Escrow 2 is still created
+    assert_eq!(
+        state1.status,
+        soroban_escrow_contracts::types::EscrowStatus::Locked
+    );
+    assert_eq!(
+        state2.status,
+        soroban_escrow_contracts::types::EscrowStatus::Created
+    );
+
+    // Verify balances
+    assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 1000);
+    assert_eq!(setup.token_client_basic.balance(&setup.buyer), 19000); // 20000 - 1000 (locked) - 5000 (not locked yet, wait, create_escrow doesn't transfer funds). Wait, create_escrow DOES NOT transfer. Lock does. So balance is 20000 - 1000 = 19000.
 }

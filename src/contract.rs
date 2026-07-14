@@ -40,7 +40,7 @@ impl PadiPayEscrowContract {
         };
         let id = increment_nonce(&env);
         write_escrow_state(&env, id, &state);
-        publish_escrow_created(&env, &state);
+        publish_escrow_created(&env, id, &state);
         Ok(id)
     }
     /// Locks funds in the escrow.
@@ -59,7 +59,7 @@ impl PadiPayEscrowContract {
         state.status = EscrowStatus::Locked;
         write_escrow_state(&env, escrow_id, &state);
 
-        publish_funds_locked(&env, &state);
+        publish_funds_locked(&env, escrow_id, &state);
 
         Ok(())
     }
@@ -83,7 +83,7 @@ impl PadiPayEscrowContract {
         state.status = EscrowStatus::Released;
         write_escrow_state(&env, escrow_id, &state);
 
-        publish_funds_released(&env, &state);
+        publish_funds_released(&env, escrow_id, &state);
 
         Ok(())
     }
@@ -103,7 +103,7 @@ impl PadiPayEscrowContract {
         state.status = EscrowStatus::Refunded;
         write_escrow_state(&env, escrow_id, &state);
 
-        publish_escrow_refunded(&env, &state);
+        publish_escrow_refunded(&env, escrow_id, &state);
 
         Ok(())
     }
