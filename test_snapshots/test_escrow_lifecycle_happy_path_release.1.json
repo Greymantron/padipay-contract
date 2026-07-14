@@ -86,7 +86,11 @@
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "function_name": "lock_funds",
-              "args": []
+              "args": [
+                {
+                  "u64": "1"
+                }
+              ]
             }
           },
           "sub_invocations": [
@@ -125,7 +129,11 @@
             "contract_fn": {
               "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
               "function_name": "release_funds",
-              "args": []
+              "args": [
+                {
+                  "u64": "1"
+                }
+              ]
             }
           },
           "sub_invocations": []
@@ -200,7 +208,7 @@
                     "symbol": "Escrow"
                   },
                   {
-                    "u64": "0"
+                    "u64": "1"
                   }
                 ]
               },
@@ -273,7 +281,20 @@
                   "executable": {
                     "wasm": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                   },
-                  "storage": null
+                  "storage": [
+                    {
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "EscrowNonce"
+                          }
+                        ]
+                      },
+                      "val": {
+                        "u64": "1"
+                      }
+                    }
+                  ]
                 }
               }
             }

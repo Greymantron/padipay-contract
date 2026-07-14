@@ -49,7 +49,7 @@ fn test_create_escrow() {
     let setup = setup_test(&env);
     let amount = 1000;
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
@@ -72,7 +72,7 @@ fn test_create_escrow() {
     );
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(state.buyer, setup.buyer);
         assert_eq!(state.seller, setup.seller);
         assert_eq!(state.token, setup.token);
@@ -92,7 +92,7 @@ fn test_create_escrow_unauthorized() {
     let amount = 1000;
 
     // This should panic because buyer didn't authorize
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 }
@@ -105,7 +105,7 @@ fn test_create_escrow_invalid_amount() {
     let setup = setup_test(&env);
     let amount = 0; // Invalid amount
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 }
@@ -119,7 +119,7 @@ fn test_create_escrow_invalid_addresses() {
     let amount = 1000;
 
     // Buyer == seller
-    setup
+    let _escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.buyer, &setup.token, &amount);
 }
@@ -136,12 +136,12 @@ fn test_lock_funds() {
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     // Create escrow
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Lock funds
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 
     let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
@@ -166,7 +166,7 @@ fn test_lock_funds() {
     assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 1000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Locked
@@ -184,13 +184,13 @@ fn test_lock_funds_already_funded() {
 
     setup.token_client.mint(&setup.buyer, &10000);
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 
     // This should panic with AlreadyFunded
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 }
 
 #[test]
@@ -204,15 +204,15 @@ fn test_release_funds() {
     setup.token_client.mint(&setup.buyer, &10000);
 
     // Create escrow
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Lock funds
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 
     // Release funds
-    setup.client.release_funds();
+    setup.client.release_funds(&escrow_id);
 
     let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
@@ -237,7 +237,7 @@ fn test_release_funds() {
     assert_eq!(setup.token_client_basic.balance(&setup.seller), 1000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Released
@@ -255,14 +255,14 @@ fn test_release_funds_already_released() {
 
     setup.token_client.mint(&setup.buyer, &10000);
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
-    setup.client.lock_funds();
-    setup.client.release_funds();
+    setup.client.lock_funds(&escrow_id);
+    setup.client.release_funds(&escrow_id);
 
     // Releasing again should panic with InvalidState (Error 2)
-    setup.client.release_funds();
+    setup.client.release_funds(&escrow_id);
 }
 
 #[test]
@@ -276,16 +276,16 @@ fn test_refund() {
     setup.token_client.mint(&setup.buyer, &10000);
 
     // Create and lock
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 
     // Check balance before refund
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 9000);
 
     // Refund
-    setup.client.refund();
+    setup.client.refund(&escrow_id);
 
     let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
@@ -310,7 +310,7 @@ fn test_refund() {
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Refunded
@@ -328,14 +328,14 @@ fn test_refund_already_released() {
 
     setup.token_client.mint(&setup.buyer, &10000);
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
-    setup.client.lock_funds();
-    setup.client.release_funds();
+    setup.client.lock_funds(&escrow_id);
+    setup.client.release_funds(&escrow_id);
 
     // Try to refund after released
-    setup.client.refund();
+    setup.client.refund(&escrow_id);
 }
 
 #[test]
@@ -359,7 +359,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     // 2. Create Escrow
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
@@ -382,7 +382,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     );
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(state.buyer, setup.buyer);
         assert_eq!(state.seller, setup.seller);
         assert_eq!(state.token, setup.token);
@@ -394,7 +394,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     });
 
     // 3. Lock Funds
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 
     let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
@@ -418,7 +418,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 5000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Locked
@@ -426,7 +426,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     });
 
     // 4. Release Funds
-    setup.client.release_funds();
+    setup.client.release_funds(&escrow_id);
 
     let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
@@ -450,7 +450,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     assert_eq!(setup.token_client_basic.balance(&setup.seller), 5000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Released
@@ -469,12 +469,12 @@ fn test_escrow_lifecycle_happy_path_refund() {
     setup.token_client.mint(&setup.buyer, &10000);
 
     // 2. Create Escrow
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Created
@@ -482,10 +482,10 @@ fn test_escrow_lifecycle_happy_path_refund() {
     });
 
     // 3. Lock Funds
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Locked
@@ -493,7 +493,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
     });
 
     // 4. Refund Funds
-    setup.client.refund();
+    setup.client.refund(&escrow_id);
 
     let events = env.events().all().filter_by_contract(&setup.contract_id);
     assert_eq!(
@@ -517,7 +517,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, escrow_id).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Refunded
@@ -528,6 +528,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
 #[test]
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_lock_funds_unauthorized() {
+    let escrow_id = 0;
     let env = Env::default();
     let setup = setup_test(&env);
 
@@ -542,12 +543,13 @@ fn test_lock_funds_unauthorized() {
         soroban_escrow_contracts::storage::write_escrow_state(&env, 0, &state);
     });
 
-    setup.client.lock_funds();
+    setup.client.lock_funds(&escrow_id);
 }
 
 #[test]
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_release_funds_unauthorized() {
+    let escrow_id = 0;
     let env = Env::default();
     let setup = setup_test(&env);
 
@@ -562,12 +564,13 @@ fn test_release_funds_unauthorized() {
         soroban_escrow_contracts::storage::write_escrow_state(&env, 0, &state);
     });
 
-    setup.client.release_funds();
+    setup.client.release_funds(&escrow_id);
 }
 
 #[test]
 #[should_panic(expected = "HostError: Error(Auth, InvalidAction)")]
 fn test_refund_unauthorized() {
+    let escrow_id = 0;
     let env = Env::default();
     let setup = setup_test(&env);
 
@@ -582,7 +585,7 @@ fn test_refund_unauthorized() {
         soroban_escrow_contracts::storage::write_escrow_state(&env, 0, &state);
     });
 
-    setup.client.refund();
+    setup.client.refund(&escrow_id);
 }
 
 #[test]
@@ -593,12 +596,12 @@ fn test_release_funds_invalid_state() {
     let setup = setup_test(&env);
     let amount = 1000;
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Try to release while still 'Created' (invalid state)
-    setup.client.release_funds();
+    setup.client.release_funds(&escrow_id);
 }
 
 #[test]
@@ -609,10 +612,10 @@ fn test_refund_invalid_state() {
     let setup = setup_test(&env);
     let amount = 1000;
 
-    setup
+    let escrow_id = setup
         .client
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     // Try to refund while still 'Created' (invalid state)
-    setup.client.refund();
+    setup.client.refund(&escrow_id);
 }
