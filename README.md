@@ -24,6 +24,8 @@ PadiPay is a decentralized, Web2.5 escrow service designed specifically for info
 
 This repository contains the core Soroban smart contracts that power the PadiPay escrow logic on the Stellar network.
 
+The contract implements an **Escrow Manager** architecture, meaning a single deployed contract is capable of managing many independent escrow agreements concurrently.
+
 ## Completed MVP Scope (v0.1.0)
 
 The v0.1.0 milestone delivered a deployable **Happy Path MVP** on the Stellar Testnet. For full release details, see the [Changelog](CHANGELOG.md).
@@ -38,7 +40,7 @@ It supports:
 
 ## Escrow Lifecycle
 
-Below is the current lifecycle of an escrow in the MVP:
+Below is the current lifecycle of an escrow in the MVP. Note that the contract manages many escrows simultaneously, and this lifecycle applies independently to each unique escrow agreement:
 
 ```mermaid
 stateDiagram-v2
@@ -53,8 +55,8 @@ stateDiagram-v2
 ## Architecture Overview
 
 The contract follows a modular architecture organized into several logical layers:
-- **Escrow State:** Models the escrow agreement and status.
-- **Storage Layer:** Manages persistent contract state using Soroban SDK.
+- **Escrow Manager & State:** A single deployed contract manages multiple concurrent escrow agreements. Each agreement is tracked independently via a unique `EscrowId`.
+- **Storage Layer:** Manages persistent contract state per escrow using the Soroban SDK.
 - **Authentication Layer:** Ensures only authorized roles (Buyer, Seller) can perform sensitive actions.
 - **Token Layer:** Safely manages locking, releasing, and refunding Stellar assets.
 - **Event Layer:** Publishes key lifecycle events (e.g., `EscrowCreated`, `FundsLocked`) for off-chain applications.

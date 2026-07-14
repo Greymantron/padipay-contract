@@ -90,7 +90,7 @@ Focus on making the contract safer, more resilient, and easier to maintain.
 
 * Escrow expiration
 * Cancellation improvements
-* Storage optimization
+* [x] Storage optimization (Multi-Escrow Manager architecture)
 * Additional validation
 * Improved error coverage
 * Better event payloads

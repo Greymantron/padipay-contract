@@ -172,6 +172,16 @@ unless explicitly required outside the contract environment.
 
 ---
 
+## Multi-Escrow Architecture
+
+PadiPay implements an Escrow Manager architecture where a single deployed contract manages multiple concurrent escrow agreements. When contributing:
+
+* Always require an `EscrowId` for state-modifying operations.
+* Never use singleton storage (`instance`) for individual escrow state.
+* Always use `persistent` storage keyed by the `EscrowId` for escrow records.
+
+---
+
 ## Keep Functions Focused
 
 Functions should have a single responsibility.

@@ -10,7 +10,7 @@ This document describes the architecture of the **PadiPay Soroban Escrow Contrac
 
 # Overview
 
-The PadiPay escrow contract enables buyers and sellers to securely exchange digital assets using a trust-minimized escrow model on the Stellar network.
+The PadiPay escrow contract acts as an **Escrow Manager** that enables multiple buyers and sellers to securely exchange digital assets concurrently using a trust-minimized escrow model on the Stellar network.
 
 The contract is intentionally designed to be:
 
@@ -44,10 +44,11 @@ The contract is organized into several logical responsibilities.
 
 ## Escrow State
 
-Responsible for representing an escrow agreement.
+Responsible for representing an escrow agreement and its identifier.
 
 Examples include:
 
+* EscrowId
 * EscrowState
 * EscrowStatus
 * DataKey
@@ -60,8 +61,9 @@ Responsible for reading and writing escrow data.
 
 Responsibilities include:
 
-* Persisting escrow records
-* Updating escrow state
+* Generating unique identifiers (nonces) for new escrows
+* Persisting escrow records independently
+* Updating specific escrow states using their EscrowId
 * Retrieving existing escrows
 
 ---
@@ -102,7 +104,7 @@ Responsible for publishing contract events for off-chain consumers.
 
 # Escrow Lifecycle (v0.1.0)
 
-The MVP supports a simple escrow lifecycle.
+The MVP supports a simple escrow lifecycle. Note that a single deployed contract manages multiple escrows simultaneously, and this lifecycle applies independently to each escrow record (identified by an `EscrowId`).
 
 ```text
 Buyer
@@ -175,15 +177,18 @@ This functionality is intentionally outside the scope of the MVP.
 
 # Storage Layout
 
-Escrow data is stored using Soroban contract storage.
+Escrow data is stored using Soroban contract storage. The architecture utilizes a multi-escrow storage model.
 
 Core data structures include:
 
 * DataKey
+* EscrowId (A unique `u64` identifier)
 * EscrowState
 * EscrowStatus
 
-Each escrow record stores:
+The contract tracks an `EscrowNonce` in instance storage to generate unique IDs.
+
+Each individual escrow record is stored in persistent storage using `DataKey::Escrow(EscrowId)` and contains:
 
 * Buyer address
 * Seller address
@@ -260,7 +265,7 @@ It only transfers existing tokens between participants.
 
 # Event Model
 
-The contract emits events to allow off-chain applications to observe escrow activity.
+The contract emits events to allow off-chain applications to observe escrow activity. All lifecycle events emit their associated `EscrowId` to ensure off-chain consumers can route events to the correct agreement.
 
 Planned MVP events:
 
