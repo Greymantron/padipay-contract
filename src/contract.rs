@@ -38,13 +38,15 @@ impl PadiPayEscrowContract {
             amount,
             status: EscrowStatus::Created,
         };
-        write_escrow_state(&env, &state);
+        let id: u64 = 0; // Placeholder for Phase 1
+        write_escrow_state(&env, id, &state);
         publish_escrow_created(&env, &state);
         Ok(())
     }
     /// Locks funds in the escrow.
     pub fn lock_funds(env: Env) -> Result<(), Error> {
-        let mut state = require_escrow(&env)?;
+        let id: u64 = 0; // Placeholder for Phase 1
+        let mut state = require_escrow(&env, id)?;
 
         require_buyer(&state);
         require_status(&state, &EscrowStatus::Created)?;
@@ -56,7 +58,7 @@ impl PadiPayEscrowContract {
         token_client.transfer(&state.buyer, env.current_contract_address(), &state.amount);
 
         state.status = EscrowStatus::Locked;
-        write_escrow_state(&env, &state);
+        write_escrow_state(&env, id, &state);
 
         publish_funds_locked(&env, &state);
 
@@ -65,7 +67,8 @@ impl PadiPayEscrowContract {
 
     /// Releases funds to the seller.
     pub fn release_funds(env: Env) -> Result<(), Error> {
-        let mut state = require_escrow(&env)?;
+        let id: u64 = 0; // Placeholder for Phase 1
+        let mut state = require_escrow(&env, id)?;
 
         require_buyer(&state);
         require_valid_transition(&state, &EscrowStatus::Released)?;
@@ -80,7 +83,7 @@ impl PadiPayEscrowContract {
         );
 
         state.status = EscrowStatus::Released;
-        write_escrow_state(&env, &state);
+        write_escrow_state(&env, id, &state);
 
         publish_funds_released(&env, &state);
 
@@ -89,7 +92,8 @@ impl PadiPayEscrowContract {
 
     /// Refunds funds back to the buyer.
     pub fn refund(env: Env) -> Result<(), Error> {
-        let mut state = require_escrow(&env)?;
+        let id: u64 = 0; // Placeholder for Phase 1
+        let mut state = require_escrow(&env, id)?;
 
         require_seller(&state);
         require_valid_transition(&state, &EscrowStatus::Refunded)?;
@@ -100,7 +104,7 @@ impl PadiPayEscrowContract {
         token_client.transfer(&env.current_contract_address(), &state.buyer, &state.amount);
 
         state.status = EscrowStatus::Refunded;
-        write_escrow_state(&env, &state);
+        write_escrow_state(&env, id, &state);
 
         publish_escrow_refunded(&env, &state);
 

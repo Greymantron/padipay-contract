@@ -1,5 +1,7 @@
 use soroban_sdk::{contracttype, Address};
 
+pub type EscrowId = u64;
+
 /// Represents the lifecycle states of an escrow.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -32,8 +34,10 @@ impl EscrowStatus {
 pub enum DataKey {
     /// The global administrator or mediator of the contract.
     Admin,
-    /// The escrow state associated with this contract instance.
-    State,
+    /// The escrow state associated with a specific escrow ID.
+    Escrow(EscrowId),
+    /// The nonce used to generate unique escrow IDs.
+    EscrowNonce,
 }
 
 #[cfg(test)]

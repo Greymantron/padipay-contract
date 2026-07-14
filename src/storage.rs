@@ -1,26 +1,26 @@
 use crate::error::Error;
-use crate::types::{DataKey, EscrowState};
+use crate::types::{DataKey, EscrowId, EscrowState};
 use soroban_sdk::Env;
 
 /// Reads the escrow state from storage.
-pub fn read_escrow_state(env: &Env) -> Result<EscrowState, Error> {
+pub fn read_escrow_state(env: &Env, id: EscrowId) -> Result<EscrowState, Error> {
     env.storage()
-        .instance()
-        .get(&DataKey::State)
+        .persistent()
+        .get(&DataKey::Escrow(id))
         .ok_or(Error::EscrowNotFound)
 }
 
 /// Writes the escrow state to storage.
-pub fn write_escrow_state(env: &Env, state: &EscrowState) {
-    env.storage().instance().set(&DataKey::State, state);
+pub fn write_escrow_state(env: &Env, id: EscrowId, state: &EscrowState) {
+    env.storage().persistent().set(&DataKey::Escrow(id), state);
 }
 
 /// Updates the escrow state in storage, ensuring it already exists.
-pub fn update_escrow_state(env: &Env, state: &EscrowState) -> Result<(), Error> {
-    if !env.storage().instance().has(&DataKey::State) {
+pub fn update_escrow_state(env: &Env, id: EscrowId, state: &EscrowState) -> Result<(), Error> {
+    if !env.storage().persistent().has(&DataKey::Escrow(id)) {
         return Err(Error::EscrowNotFound);
     }
-    write_escrow_state(env, state);
+    write_escrow_state(env, id, state);
     Ok(())
 }
 
@@ -48,22 +48,24 @@ mod test {
                 status: EscrowStatus::Created,
             };
 
+            let id: EscrowId = 1;
+
             // Initially not found
-            assert_eq!(read_escrow_state(&env), Err(Error::EscrowNotFound));
+            assert_eq!(read_escrow_state(&env, id), Err(Error::EscrowNotFound));
             assert_eq!(
-                update_escrow_state(&env, &state),
+                update_escrow_state(&env, id, &state),
                 Err(Error::EscrowNotFound)
             );
 
             // Write and read
-            write_escrow_state(&env, &state);
-            assert_eq!(read_escrow_state(&env), Ok(state.clone()));
+            write_escrow_state(&env, id, &state);
+            assert_eq!(read_escrow_state(&env, id), Ok(state.clone()));
 
             // Update
             let mut new_state = state.clone();
             new_state.status = EscrowStatus::Locked;
-            assert_eq!(update_escrow_state(&env, &new_state), Ok(()));
-            assert_eq!(read_escrow_state(&env), Ok(new_state));
+            assert_eq!(update_escrow_state(&env, id, &new_state), Ok(()));
+            assert_eq!(read_escrow_state(&env, id), Ok(new_state));
         });
     }
 }

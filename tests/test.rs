@@ -72,7 +72,7 @@ fn test_create_escrow() {
     );
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(state.buyer, setup.buyer);
         assert_eq!(state.seller, setup.seller);
         assert_eq!(state.token, setup.token);
@@ -166,7 +166,7 @@ fn test_lock_funds() {
     assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 1000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Locked
@@ -237,7 +237,7 @@ fn test_release_funds() {
     assert_eq!(setup.token_client_basic.balance(&setup.seller), 1000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Released
@@ -310,7 +310,7 @@ fn test_refund() {
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Refunded
@@ -382,7 +382,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     );
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(state.buyer, setup.buyer);
         assert_eq!(state.seller, setup.seller);
         assert_eq!(state.token, setup.token);
@@ -418,7 +418,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 5000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Locked
@@ -450,7 +450,7 @@ fn test_escrow_lifecycle_happy_path_release() {
     assert_eq!(setup.token_client_basic.balance(&setup.seller), 5000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Released
@@ -474,7 +474,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
         .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Created
@@ -485,7 +485,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
     setup.client.lock_funds();
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Locked
@@ -517,7 +517,7 @@ fn test_escrow_lifecycle_happy_path_refund() {
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 10000);
 
     env.as_contract(&setup.contract_id, || {
-        let state = soroban_escrow_contracts::storage::read_escrow_state(&env).unwrap();
+        let state = soroban_escrow_contracts::storage::read_escrow_state(&env, 0).unwrap();
         assert_eq!(
             state.status,
             soroban_escrow_contracts::types::EscrowStatus::Refunded
@@ -539,7 +539,7 @@ fn test_lock_funds_unauthorized() {
             amount: 1000,
             status: soroban_escrow_contracts::types::EscrowStatus::Created,
         };
-        soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
+        soroban_escrow_contracts::storage::write_escrow_state(&env, 0, &state);
     });
 
     setup.client.lock_funds();
@@ -559,7 +559,7 @@ fn test_release_funds_unauthorized() {
             amount: 1000,
             status: soroban_escrow_contracts::types::EscrowStatus::Locked,
         };
-        soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
+        soroban_escrow_contracts::storage::write_escrow_state(&env, 0, &state);
     });
 
     setup.client.release_funds();
@@ -579,7 +579,7 @@ fn test_refund_unauthorized() {
             amount: 1000,
             status: soroban_escrow_contracts::types::EscrowStatus::Locked,
         };
-        soroban_escrow_contracts::storage::write_escrow_state(&env, &state);
+        soroban_escrow_contracts::storage::write_escrow_state(&env, 0, &state);
     });
 
     setup.client.refund();
