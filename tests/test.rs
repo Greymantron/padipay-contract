@@ -829,3 +829,92 @@ fn test_lock_funds_ttl_extension() {
     });
 }
 
+#[test]
+fn test_release_funds_ttl_extension() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let setup = setup_test(&env);
+    let amount = 1000;
+
+    setup.token_client.mint(&setup.buyer, &10000);
+    let escrow_id = setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds(&escrow_id);
+
+    // Call release_funds
+    setup.client.release_funds(&escrow_id);
+
+    env.as_contract(&setup.contract_id, || {
+        let expected_ttl = 30 * 17_280;
+        let persistent_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&soroban_escrow_contracts::types::DataKey::Escrow(escrow_id));
+        assert_eq!(persistent_ttl, expected_ttl);
+
+        let instance_ttl = env.storage().instance().get_ttl();
+        assert_eq!(instance_ttl, expected_ttl);
+    });
+}
+
+#[test]
+fn test_refund_ttl_extension() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let setup = setup_test(&env);
+    let amount = 1000;
+
+    setup.token_client.mint(&setup.buyer, &10000);
+    let escrow_id = setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds(&escrow_id);
+
+    // Call refund
+    setup.client.refund(&escrow_id);
+
+    env.as_contract(&setup.contract_id, || {
+        let expected_ttl = 30 * 17_280;
+        let persistent_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&soroban_escrow_contracts::types::DataKey::Escrow(escrow_id));
+        assert_eq!(persistent_ttl, expected_ttl);
+
+        let instance_ttl = env.storage().instance().get_ttl();
+        assert_eq!(instance_ttl, expected_ttl);
+    });
+}
+
+#[test]
+fn test_resolve_dispute_ttl_extension() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let setup = setup_test(&env);
+    let amount = 1000;
+    let mediator = Address::generate(&env);
+
+    setup.token_client.mint(&setup.buyer, &10000);
+    let escrow_id = setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+    setup.client.lock_funds(&escrow_id);
+
+    // Call resolve_dispute
+    setup
+        .client
+        .resolve_dispute(&escrow_id, &mediator, &Symbol::new(&env, "refund_buyer"));
+
+    env.as_contract(&setup.contract_id, || {
+        let expected_ttl = 30 * 17_280;
+        let persistent_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&soroban_escrow_contracts::types::DataKey::Escrow(escrow_id));
+        assert_eq!(persistent_ttl, expected_ttl);
+
+        let instance_ttl = env.storage().instance().get_ttl();
+        assert_eq!(instance_ttl, expected_ttl);
+    });
+}
