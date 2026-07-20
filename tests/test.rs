@@ -2,7 +2,10 @@
 
 use soroban_escrow_contracts::{PadiPayEscrowContract, PadiPayEscrowContractClient};
 use soroban_sdk::{
-    testutils::{Address as _, Events},
+    testutils::{
+        storage::{Instance, Persistent},
+        Address as _, Events,
+    },
     vec, Address, Env, IntoVal, Symbol,
 };
 
@@ -773,3 +776,28 @@ fn test_multiple_concurrent_escrows() {
     assert_eq!(setup.token_client_basic.balance(&setup.contract_id), 1000);
     assert_eq!(setup.token_client_basic.balance(&setup.buyer), 19000); // 20000 - 1000 (locked) - 5000 (not locked yet, wait, create_escrow doesn't transfer funds). Wait, create_escrow DOES NOT transfer. Lock does. So balance is 20000 - 1000 = 19000.
 }
+
+#[test]
+fn test_create_escrow_ttl_extension() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let setup = setup_test(&env);
+    let amount = 1000;
+
+    let escrow_id = setup
+        .client
+        .create_escrow(&setup.buyer, &setup.seller, &setup.token, &amount);
+
+    env.as_contract(&setup.contract_id, || {
+        let expected_ttl = 30 * 17_280;
+        let persistent_ttl = env
+            .storage()
+            .persistent()
+            .get_ttl(&soroban_escrow_contracts::types::DataKey::Escrow(escrow_id));
+        assert_eq!(persistent_ttl, expected_ttl);
+
+        let instance_ttl = env.storage().instance().get_ttl();
+        assert_eq!(instance_ttl, expected_ttl);
+    });
+}
+
